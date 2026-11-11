@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
+import { useActionState, useEffect, useMemo, useState } from "react";
+import { darDeBajaMedico } from "@/app/actions";
 
 export interface MedicoItem {
   id: string;
@@ -506,11 +508,52 @@ export function MedicosClient({
                   <span className="material-symbols-outlined text-[18px]">edit</span>
                   Modificar
                 </Link>
+                {selectedMedico.isActive && (
+                  <DarDeBajaMedico medicoId={selectedMedico.id} />
+                )}
               </div>
             </div>
           )}
         </div>
       )}
     </div>
+  );
+}
+
+function DarDeBajaMedico({ medicoId }: { medicoId: string }) {
+  const router = useRouter();
+  const [state, formAction, pending] = useActionState(darDeBajaMedico, {});
+
+  useEffect(() => {
+    if (state.ok) router.refresh();
+  }, [router, state.ok]);
+
+  return (
+    <form
+      action={formAction}
+      onSubmit={(event) => {
+        if (
+          !window.confirm(
+            "¿Querés dar de baja a este médico? Dejará de recibir turnos y no podrá acceder al sistema.",
+          )
+        ) {
+          event.preventDefault();
+        }
+      }}
+    >
+      <input type="hidden" name="id" value={medicoId} />
+      {state.error && (
+        <p className="mb-2 text-sm font-medium text-error" role="alert">
+          {state.error}
+        </p>
+      )}
+      <button
+        type="submit"
+        disabled={pending}
+        className="inline-flex h-10 w-full items-center justify-center gap-2 rounded border border-error px-4 text-sm font-semibold text-error transition-colors hover:bg-error-container disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {pending ? "Procesando…" : "Dar de baja"}
+      </button>
+    </form>
   );
 }

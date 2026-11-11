@@ -552,6 +552,45 @@ export async function eliminarUsuario(formData: FormData): Promise<void> {
   revalidatePath("/pacientes");
 }
 
+type DarDeBajaMedicoState = {
+  error?: string;
+  ok?: boolean;
+};
+
+export async function darDeBajaMedico(
+  _previousState: DarDeBajaMedicoState,
+  formData: FormData,
+): Promise<DarDeBajaMedicoState> {
+  await requireRole(["admin"]);
+
+  const id = formData.get("id");
+  if (typeof id !== "string" || !id) {
+    return { error: "No se identificó el médico." };
+  }
+
+  const prisma = getPrisma();
+  const medico = await prisma.user.findUnique({
+    where: { id },
+    select: { role: true, isActive: true },
+  });
+  if (!medico || medico.role !== "MEDICO") {
+    return { error: "No se encontró el médico." };
+  }
+  if (!medico.isActive) {
+    return { error: "El médico ya está inactivo." };
+  }
+
+  await prisma.user.update({
+    where: { id },
+    data: { isActive: false },
+  });
+
+  revalidatePath("/admin/medicos");
+  revalidatePath("/inicio");
+  revalidatePath("/medico");
+  return { ok: true };
+}
+
 // ---------------------------------------------------------------------------
 // Coberturas Médicas (RF-05b) y Stock de Vacunas (RF-04a)
 // ---------------------------------------------------------------------------
