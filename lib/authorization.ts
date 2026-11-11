@@ -74,6 +74,7 @@ export async function requireMedico() {
       firstName: true,
       lastName: true,
       matricula: true,
+      especialidad: true,
     },
   });
 
@@ -94,6 +95,7 @@ export async function requireMedico() {
     firstName: medico.firstName,
     lastName: medico.lastName,
     matricula: medico.matricula,
+    especialidad: medico.especialidad,
   };
 }
 
