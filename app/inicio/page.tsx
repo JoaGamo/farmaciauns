@@ -108,29 +108,27 @@ export default async function InicioPage() {
                 </p>
               </Link>
 
-              <article className={styles.card}>
+              <Link href="/turnos" className={`${styles.card} ${styles.cardLink}`}>
                 <div className={styles.cardIcon}>
                   <CalendarIcon />
                 </div>
                 <h2>Mis turnos</h2>
                 <p>
-                  Cuando el servicio esté disponible, vas a poder consultar y
-                  gestionar tus turnos desde acá.
+                  Reservá un turno con un médico y consultá o cancelá tus
+                  turnos.
                 </p>
-                <span className={styles.status}>Próximamente</span>
-              </article>
+              </Link>
 
-              <article className={styles.card}>
+              <Link href="/historia-clinica" className={`${styles.card} ${styles.cardLink}`}>
                 <div className={styles.cardIcon}>
                   <MedicalRecordIcon />
                 </div>
                 <h2>Mi historia clínica</h2>
                 <p>
-                  Tu información clínica estará disponible en este espacio
-                  cuando se integre la base de datos.
+                  Consultá los diagnósticos y tratamientos que registraron tus
+                  médicos.
                 </p>
-                <span className={styles.status}>Próximamente</span>
-              </article>
+              </Link>
             </>
           )}
         </section>

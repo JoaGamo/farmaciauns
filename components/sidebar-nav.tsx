@@ -4,8 +4,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   BriefcaseMedical,
+  CalendarCheck,
   CalendarDays,
+  CalendarPlus,
   ClipboardList,
+  FileHeart,
   IdCard,
   LayoutDashboard,
   Pill,
@@ -52,6 +55,9 @@ const NAV_BY_ROLE: Record<SidebarRole, NavItem[]> = {
   ],
   PACIENTE: [
     { href: "/inicio", label: "Inicio", icon: LayoutDashboard },
+    { href: "/turnos/reservar", label: "Reservar turno", icon: CalendarPlus },
+    { href: "/turnos", label: "Mis turnos", icon: CalendarCheck },
+    { href: "/historia-clinica", label: "Mi historia clínica", icon: FileHeart },
     { href: "/cobertura", label: "Mis datos", icon: ShieldCheck },
   ],
 };

@@ -11,6 +11,7 @@
  */
 
 import type { FechaISO, FranjaConFecha } from "./domain/agenda";
+import { aFechaDb, aFechaISO } from "./fecha-db";
 import { getPrisma } from "./prisma";
 
 /** Franja persistida, con la duración de turno que tenía al guardarse. */
@@ -22,14 +23,6 @@ export interface FranjaGuardada extends FranjaConFecha {
 export interface RangoFechas {
   desde: FechaISO;
   hasta: FechaISO;
-}
-
-function aFechaDb(fecha: FechaISO): Date {
-  return new Date(`${fecha}T00:00:00.000Z`);
-}
-
-function aFechaISO(fecha: Date): FechaISO {
-  return fecha.toISOString().slice(0, 10);
 }
 
 const CAMPOS_FRANJA = {

@@ -74,6 +74,7 @@ export async function requireMedico() {
       firstName: true,
       lastName: true,
       matricula: true,
+      especialidad: true,
     },
   });
 
@@ -94,5 +95,29 @@ export async function requireMedico() {
     firstName: medico.firstName,
     lastName: medico.lastName,
     matricula: medico.matricula,
+    especialidad: medico.especialidad,
+  };
+}
+
+/**
+ * Sprint 3 — Paciente logueado, como fila de `User` en Neon.
+ *
+ * Reusa `requireRole` para el control de acceso. El id que devuelve es el
+ * único que deben usar las páginas y actions del paciente: nunca se toma de la
+ * URL ni del formulario (US-42 CA4: no se puede pedir la historia de otro).
+ */
+export async function requirePaciente() {
+  await requireRole(["paciente"]);
+
+  const paciente = await getCurrentDbUser();
+  if (!paciente || paciente.role !== "PACIENTE") {
+    throw new Error("La cuenta de paciente no está registrada en la base de datos.");
+  }
+
+  return {
+    id: paciente.id,
+    firstName: paciente.firstName,
+    lastName: paciente.lastName,
+    dni: paciente.dni,
   };
 }
