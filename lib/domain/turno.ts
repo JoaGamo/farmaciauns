@@ -115,6 +115,11 @@ const ETIQUETAS_TIPO: Record<TipoTurno, string> = {
   VACUNACION: "Vacunación",
 };
 
+/** `"2026-11-23"` → `"23/11/2026"` (formato de las tablas de los wireframes). */
+export function formatearFecha(fecha: FechaISO): string {
+  return `${fecha.slice(8, 10)}/${fecha.slice(5, 7)}/${fecha.slice(0, 4)}`;
+}
+
 export function etiquetaEstado(estado: EstadoTurno): string {
   return ETIQUETAS_ESTADO[estado];
 }

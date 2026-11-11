@@ -14,6 +14,7 @@ import {
   clasificarTurnos,
   diasConHorarios,
   esFuturo,
+  formatearFecha,
   horariosLibres,
   instanteDeTurno,
   mensajeDuracionConTurnos,
@@ -51,6 +52,10 @@ describe("tiempo", () => {
       fecha: "2026-11-23",
       minuto: 1410,
     });
+  });
+
+  test("formatea fechas como en las tablas de los wireframes", () => {
+    assert.equal(formatearFecha("2026-11-03"), "03/11/2026");
   });
 
   test("un turno es futuro solo si todavía no empezó", () => {
