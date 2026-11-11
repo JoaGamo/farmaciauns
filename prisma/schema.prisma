@@ -33,6 +33,21 @@ enum MotivoEgreso {
   OTRO
 }
 
+/// Sprint 3 (RF-02, RF-04b): un turno es de consulta médica o de vacunación.
+enum TipoTurno {
+  CONSULTA
+  VACUNACION
+}
+
+/// Sprint 3: ciclo de vida de un turno. "Disponible" no se guarda: un horario
+/// libre es uno de las franjas del médico sin turno activo.
+enum EstadoTurno {
+  RESERVADO
+  ATENDIDO
+  AUSENTE
+  CANCELADO
+}
+
 model User {
   id             String        @id @default(cuid())
   clerkId        String?       @unique
@@ -54,15 +69,21 @@ model User {
   // US-21: true si el paciente registró su cobertura como "Particular"
   // (permite distinguirlo de "nunca registró", ya que coberturaId es null en
   // ambos casos).
-  esParticular   Boolean  @default(false)
+  esParticular   Boolean       @default(false)
 
-  cobertura           Cobertura?         @relation(fields: [coberturaId], references: [id], onDelete: SetNull)
+  cobertura           Cobertura?        @relation(fields: [coberturaId], references: [id], onDelete: SetNull)
   coberturasAceptadas MedicoCobertura[]
   movimientosStock    MovimientoStock[]
 
   // RF-01 (agenda médica): solo para usuarios con rol MEDICO.
   configuracionAgenda ConfiguracionAgenda?
   franjasHorarias     FranjaHoraria[]
+
+  // Sprint 3: turnos e historia clínica.
+  turnosComoPaciente    Turno[]           @relation("TurnoPaciente")
+  turnosComoMedico      Turno[]           @relation("TurnoMedico")
+  registrosComoPaciente RegistroClinico[] @relation("RegistroPaciente")
+  registrosComoMedico   RegistroClinico[] @relation("RegistroMedico")
 
   @@index([coberturaId])
 }
@@ -116,10 +137,10 @@ model Cobertura {
 
 /// Unión médico ↔ cobertura aceptada. Borrar esta fila NO borra la Cobertura.
 model MedicoCobertura {
-  id          String    @id @default(cuid())
+  id          String   @id @default(cuid())
   medicoId    String
   coberturaId String
-  createdAt   DateTime  @default(now())
+  createdAt   DateTime @default(now())
 
   medico    User      @relation(fields: [medicoId], references: [id], onDelete: Cascade)
   cobertura Cobertura @relation(fields: [coberturaId], references: [id], onDelete: Cascade)
@@ -137,21 +158,88 @@ model Vacuna {
   updatedAt   DateTime @updatedAt
 
   movimientos MovimientoStock[]
+  turnos      Turno[]
 }
 
 /// Ledger inmutable de movimientos de stock (auditoría).
 model MovimientoStock {
-  id            String        @id @default(cuid())
+  id            String         @id @default(cuid())
   vacunaId      String
   tipo          TipoMovimiento
   cantidad      Int
   motivo        MotivoEgreso?
   motivoDetalle String?
   realizadoPor  String
-  createdAt     DateTime      @default(now())
+  createdAt     DateTime       @default(now())
 
   vacuna  Vacuna @relation(fields: [vacunaId], references: [id], onDelete: Cascade)
   usuario User   @relation(fields: [realizadoPor], references: [id], onDelete: Restrict)
 
   @@index([vacunaId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Sprint 3 — Turnos (RF-02, RF-22, RF-27, RF-04b) e historia clínica (RF-06).
+//
+// Una sola tabla para turnos de consulta y de vacunación: "Mis turnos" (US-30),
+// los recordatorios (US-32), los pagos (US-37), las bajas (US-47/49/50) y los
+// reportes (US-43/46) leen de acá. Los horarios libres NO se guardan: salen de
+// las franjas de la agenda menos los turnos activos.
+//
+// `slotMedico` y `slotPaciente` evitan dos reservas del mismo horario aunque
+// lleguen a la vez (US-29 CA2). Valen "<id>|<YYYY-MM-DD>|<inicioMin>" mientras
+// el turno no está cancelado y se ponen en null al cancelarlo, así el horario
+// vuelve a quedar libre (US-31). Postgres admite varios null en una columna
+// única.
+// ---------------------------------------------------------------------------
+
+/// Turno de un paciente: consulta con un médico o aplicación de una vacuna.
+model Turno {
+  id           String        @id @default(cuid())
+  tipo         TipoTurno
+  estado       EstadoTurno   @default(RESERVADO)
+  pacienteId   String
+  /// Solo en turnos de CONSULTA.
+  medicoId     String?
+  /// Copia de la especialidad del médico al reservar (US-17 puede cambiarla).
+  especialidad Especialidad?
+  /// Solo en turnos de VACUNACION.
+  vacunaId     String?
+  /// Día calendario, sin hora.
+  fecha        DateTime      @db.Date
+  /// Minutos desde las 00:00, hora de Argentina.
+  inicioMin    Int
+  finMin       Int
+  slotMedico   String?       @unique
+  slotPaciente String?       @unique
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  paciente        User             @relation("TurnoPaciente", fields: [pacienteId], references: [id], onDelete: Restrict)
+  medico          User?            @relation("TurnoMedico", fields: [medicoId], references: [id], onDelete: Restrict)
+  vacuna          Vacuna?          @relation(fields: [vacunaId], references: [id], onDelete: Restrict)
+  registroClinico RegistroClinico?
+
+  @@index([medicoId, fecha])
+  @@index([pacienteId, fecha])
+  @@index([vacunaId, fecha])
+}
+
+/// Registro de la historia clínica (US-40): uno por turno atendido, inmutable.
+model RegistroClinico {
+  id           String       @id @default(cuid())
+  turnoId      String       @unique
+  pacienteId   String
+  medicoId     String
+  /// Copia de la especialidad al momento de la atención.
+  especialidad Especialidad
+  diagnostico  String
+  tratamiento  String
+  createdAt    DateTime     @default(now())
+
+  turno    Turno @relation(fields: [turnoId], references: [id], onDelete: Restrict)
+  paciente User  @relation("RegistroPaciente", fields: [pacienteId], references: [id], onDelete: Restrict)
+  medico   User  @relation("RegistroMedico", fields: [medicoId], references: [id], onDelete: Restrict)
+
+  @@index([pacienteId, createdAt])
 }
