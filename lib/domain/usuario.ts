@@ -320,7 +320,19 @@ function validarDatosAltaStaffComun(
 export function validarDatosPersonalAdministrativo(
   d: DatosPersonalAdministrativo,
 ): CampoError {
-  return validarDatosAltaStaffComun(d);
+  const errores = validarDatosAltaStaffComun(d);
+
+  validarNombre(d.firstName, "firstName", MSG_NOMBRE_FORMATO, errores);
+  validarNombre(d.lastName, "lastName", MSG_APELLIDO_FORMATO, errores);
+
+  if (d.firstName.trim().length > 50) {
+    errores.firstName = MSG_NOMBRE_LONGITUD;
+  }
+  if (d.lastName.trim().length > 50) {
+    errores.lastName = MSG_APELLIDO_LONGITUD;
+  }
+
+  return errores;
 }
 
 /**

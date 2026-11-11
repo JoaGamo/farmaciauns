@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import type { UsuarioPublico } from "@/lib/domain/usuario";
 import { etiquetaRol } from "@/lib/domain/usuario";
@@ -39,6 +40,17 @@ function formatearFecha(iso: string | null): string {
   return d.toLocaleDateString("es-AR");
 }
 
+function formatearDni(dni: string): string {
+  const clean = dni.replace(/\D/g, "");
+  if (clean.length === 8) {
+    return `${clean.slice(0, 2)}.${clean.slice(2, 5)}.${clean.slice(5)}`;
+  }
+  if (clean.length === 7) {
+    return `${clean.slice(0, 1)}.${clean.slice(1, 4)}.${clean.slice(4)}`;
+  }
+  return dni || "—";
+}
+
 /**
  * Listado genérico con selección y detalle inline (SIN contraseña).
  * Se usa para US-12 (pacientes), US-13 (personal administrativo) y
@@ -51,16 +63,22 @@ export function ListadoUsuarios({
   puedeEliminar = false,
   accionBaja = eliminarUsuario,
   accionReactivar,
+  editarHrefBase,
+  selectedUserId,
 }: {
   usuarios: UsuarioPublico[];
   mostrarEspecialidad?: boolean;
   puedeEliminar?: boolean;
   accionBaja?: AccionBaja;
   accionReactivar?: AccionBaja;
+  editarHrefBase?: string;
+  selectedUserId?: string;
 }) {
   const [seleccionadoId, setSeleccionadoId] = useState<string | null>(
-    usuarios[0]?.id ?? null,
+    selectedUserId ?? usuarios[0]?.id ?? null,
   );
+  const [confirmarReactivacion, setConfirmarReactivacion] = useState(false);
+
   const seleccionado =
     usuarios.find((u) => u.id === seleccionadoId) ?? usuarios[0] ?? null;
 
@@ -100,7 +118,10 @@ export function ListadoUsuarios({
                 return (
                   <tr
                     key={u.id}
-                    onClick={() => setSeleccionadoId(u.id)}
+                    onClick={() => {
+                      setSeleccionadoId(u.id);
+                      setConfirmarReactivacion(false);
+                    }}
                     className={`cursor-pointer transition-colors ${
                       seleccionado
                         ? "bg-surface-container-high/70"
@@ -174,7 +195,7 @@ export function ListadoUsuarios({
                 <FilaDetalle etiqueta="Apellido" valor={seleccionado.lastName} />
                 <FilaDetalle
                   etiqueta="DNI"
-                  valor={seleccionado.dni}
+                  valor={formatearDni(seleccionado.dni)}
                   mono
                 />
                 <FilaDetalle
@@ -220,38 +241,48 @@ export function ListadoUsuarios({
                 />
               </dl>
               {puedeEliminar && (
-                <form
-                  action={
-                    seleccionado.active || !accionReactivar
-                      ? accionBaja
-                      : accionReactivar
-                  }
-                  onSubmit={(e) => {
-                    if (
-                      !window.confirm(
-                        seleccionado.active
-                          ? `¿Dar de baja a ${seleccionado.firstName} ${seleccionado.lastName}? No va a poder iniciar sesión.`
-                          : `¿Reactivar a ${seleccionado.firstName} ${seleccionado.lastName}? Va a poder volver a iniciar sesión.`,
-                      )
-                    ) {
-                      e.preventDefault();
-                    }
-                  }}
-                  className="flex"
-                >
-                  <input type="hidden" name="id" value={seleccionado.id} />
-                  <button
-                    type="submit"
-                    disabled={!seleccionado.active && !accionReactivar}
-                    className={`inline-flex h-10 flex-1 items-center justify-center gap-2 rounded px-4 text-sm font-semibold text-on-primary transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 ${
-                      seleccionado.active
-                        ? "bg-error"
-                        : "bg-primary"
-                    }`}
+                seleccionado.active || !accionReactivar ? (
+                  <form
+                    action={accionBaja}
+                    onSubmit={(e) => {
+                      if (
+                        !window.confirm(
+                          `¿Dar de baja a ${seleccionado.firstName} ${seleccionado.lastName}? No va a poder iniciar sesión.`,
+                        )
+                      ) {
+                        e.preventDefault();
+                      }
+                    }}
+                    className="flex"
                   >
-                    {seleccionado.active ? "Dar de baja" : "Reactivar"}
+                    <input type="hidden" name="id" value={seleccionado.id} />
+                    <button
+                      type="submit"
+                      className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded bg-error px-4 text-sm font-semibold text-on-primary transition-opacity hover:opacity-90"
+                    >
+                      Dar de baja
+                    </button>
+                  </form>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmarReactivacion(true)}
+                    className="inline-flex h-10 w-full items-center justify-center gap-2 rounded bg-primary px-4 text-sm font-semibold text-on-primary transition-colors hover:bg-secondary"
+                  >
+                    <span aria-hidden="true" className="material-symbols-outlined text-[18px]">
+                      refresh
+                    </span>
+                    Reactivar
                   </button>
-                </form>
+                )
+              )}
+              {editarHrefBase && (
+                <Link
+                  href={`${editarHrefBase}/${seleccionado.id}/editar`}
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded bg-surface-container-high px-4 text-sm font-semibold text-on-surface transition-colors hover:bg-surface-container"
+                >
+                  Modificar
+                </Link>
               )}
             </div>
           </>
@@ -261,6 +292,110 @@ export function ListadoUsuarios({
           </div>
         )}
       </aside>
+
+      {confirmarReactivacion &&
+        seleccionado?.role === "PACIENTE" &&
+        !seleccionado.active &&
+        accionReactivar && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-primary/40 p-4 backdrop-blur-sm"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="confirmar-reactivacion-paciente-title"
+            aria-describedby="confirmar-reactivacion-paciente-description"
+            onClick={(event) => {
+              if (event.target === event.currentTarget) {
+                setConfirmarReactivacion(false);
+              }
+            }}
+          >
+            <div className="w-full max-w-xl overflow-hidden rounded-xl bg-surface-container-lowest shadow-2xl">
+              <div className="flex items-start gap-5 p-6">
+                <div className="flex h-[60px] w-[60px] shrink-0 items-center justify-center rounded-xl bg-primary-fixed text-on-surface">
+                  <span
+                    aria-hidden="true"
+                    className="material-symbols-outlined text-[28px] leading-none"
+                  >
+                    refresh
+                  </span>
+                </div>
+                <div className="min-w-0">
+                  <h2
+                    id="confirmar-reactivacion-paciente-title"
+                    className="text-xl font-semibold tracking-tight text-on-surface"
+                  >
+                    ¿Reactivar la cuenta de {seleccionado.firstName} {seleccionado.lastName}?
+                  </h2>
+                  <p
+                    id="confirmar-reactivacion-paciente-description"
+                    className="mt-1 text-base leading-7 text-on-surface-variant"
+                  >
+                    La paciente volverá a tener acceso al portal, conservando su
+                    historia clínica y pudiendo solicitar nuevos turnos en Sala
+                    Médica.
+                  </p>
+                </div>
+              </div>
+              <dl className="mx-6 mb-6 flex flex-col gap-2 rounded-md border border-outline-variant/30 bg-primary-fixed/50 p-5 text-sm">
+                <div className="flex items-center justify-between gap-4">
+                  <dt className="font-medium uppercase tracking-wide text-on-surface">
+                    Paciente:
+                  </dt>
+                  <dd className="truncate text-base font-semibold text-on-surface">
+                    {seleccionado.firstName} {seleccionado.lastName}
+                  </dd>
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <dt className="font-medium uppercase tracking-wide text-on-surface">
+                    DNI:
+                  </dt>
+                  <dd className="font-mono text-on-surface-variant">
+                    {formatearDni(seleccionado.dni)}
+                  </dd>
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <dt className="font-medium uppercase tracking-wide text-on-surface">
+                    Cobertura:
+                  </dt>
+                  <dd className="truncate font-mono text-on-surface-variant">
+                    {seleccionado.coberturaNombre ?? "Particular"}
+                  </dd>
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <dt className="font-medium uppercase tracking-wide text-on-surface">
+                    Estado actual:
+                  </dt>
+                  <dd>
+                    <span className="rounded bg-surface-container-high px-2 py-1 font-mono text-xs font-bold uppercase text-on-surface-variant">
+                      Inactivo
+                    </span>
+                  </dd>
+                </div>
+              </dl>
+              <div className="flex flex-col-reverse justify-end gap-2 border-t border-outline-variant/20 bg-primary-fixed/60 px-6 py-5 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={() => setConfirmarReactivacion(false)}
+                  className="inline-flex h-12 items-center justify-center rounded-md border border-outline bg-surface-container-lowest px-7 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-high"
+                >
+                  Cancelar
+                </button>
+                <form action={accionReactivar}>
+                  <input type="hidden" name="id" value={seleccionado.id} />
+                  <button
+                    type="submit"
+                    className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-md bg-black px-7 text-sm font-semibold text-white transition-colors hover:bg-on-surface"
+                  >
+                    <span aria-hidden="true" className="material-symbols-outlined text-[18px]">
+                      refresh
+                    </span>
+                    Reactivar
+                  </button>
+                </form>
+              </div>
+            </div>
+          </div>
+        )}
     </div>
   );
 }

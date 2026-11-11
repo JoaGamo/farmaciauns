@@ -19,6 +19,7 @@ type FormInputProps = {
   pattern?: string;
   maxLength?: number;
   allowedCharacters?: RegExp;
+  leadingIcon?: string;
   /** Si es true, bloquea el ingreso de letras y fuerza `inputMode="numeric"`. */
   numeric?: boolean;
 };
@@ -48,6 +49,7 @@ export function FormInput({
   maxLength,
   allowedCharacters,
   numeric,
+  leadingIcon,
 }: FormInputProps) {
   const [filteredValue, setFilteredValue] = useState(defaultValue ?? "");
 
@@ -79,33 +81,45 @@ export function FormInput({
           </span>
         )}
       </label>
-      <input
-        id={name}
-        name={name}
-        type={type}
-        required={required}
-        minLength={minLength}
-        inputMode={numeric ? "numeric" : inputMode}
-        autoComplete={autoComplete}
-        placeholder={placeholder}
-        defaultValue={defaultValue}
-        pattern={pattern}
-        maxLength={maxLength}
-        value={allowedCharacters ? filteredValue : undefined}
-        onChange={
-          allowedCharacters
-            ? (event) => {
-                const characters = Array.from(event.target.value)
-                  .filter((character) => allowedCharacters.test(character))
-                  .slice(0, maxLength);
-                setFilteredValue(characters.join(""));
-              }
-            : undefined
-        }
-        aria-invalid={Boolean(error)}
-        onKeyDown={handleKeyDown}
-        className="h-10 w-full rounded border-0 bg-surface-container-low px-3 text-sm text-on-surface placeholder:text-outline focus:bg-surface-container-lowest focus:outline-none focus:ring-2 focus:ring-primary/40"
-      />
+      <div className="relative">
+        {leadingIcon && (
+          <span
+            aria-hidden="true"
+            className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[20px] text-on-surface-variant"
+          >
+            {leadingIcon}
+          </span>
+        )}
+        <input
+          id={name}
+          name={name}
+          type={type}
+          required={required}
+          minLength={minLength}
+          inputMode={numeric ? "numeric" : inputMode}
+          autoComplete={autoComplete}
+          placeholder={placeholder}
+          defaultValue={allowedCharacters ? undefined : defaultValue}
+          pattern={pattern}
+          maxLength={maxLength}
+          value={allowedCharacters ? filteredValue : undefined}
+          onChange={
+            allowedCharacters
+              ? (event) => {
+                  const characters = Array.from(event.target.value)
+                    .filter((character) => allowedCharacters.test(character))
+                    .slice(0, maxLength);
+                  setFilteredValue(characters.join(""));
+                }
+              : undefined
+          }
+          aria-invalid={Boolean(error)}
+          onKeyDown={handleKeyDown}
+          className={`h-10 w-full rounded border-0 bg-surface-container-low text-sm text-on-surface placeholder:text-outline focus:bg-surface-container-lowest focus:outline-none focus:ring-2 focus:ring-primary/40 ${
+            leadingIcon ? "pl-11 pr-3" : "px-3"
+          }`}
+        />
+      </div>
       {error && (
         <span role="alert" className="text-xs font-medium text-error">
           {error}

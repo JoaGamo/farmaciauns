@@ -52,7 +52,7 @@ const NAV_BY_ROLE: Record<SidebarRole, NavItem[]> = {
   ],
   PACIENTE: [
     { href: "/inicio", label: "Inicio", icon: LayoutDashboard },
-    { href: "/cobertura", label: "Mi cobertura", icon: ShieldCheck },
+    { href: "/cobertura", label: "Mis datos", icon: ShieldCheck },
   ],
 };
 

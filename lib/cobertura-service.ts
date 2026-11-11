@@ -224,6 +224,74 @@ export async function asignarCoberturaAPaciente(
 }
 
 /**
+ * US-52 — Actualiza contacto y cobertura del paciente en una única mutación.
+ * La cobertura conserva las mismas reglas de disponibilidad y afiliación que
+ * US-21.
+ */
+export async function actualizarDatosPaciente(
+  pacienteId: string,
+  datos: {
+    email: string;
+    phone: string;
+    coberturaId: string | null;
+    numeroAfiliado: string | null;
+  },
+): Promise<void> {
+  const prisma = getPrisma();
+  await prisma.$transaction(async (tx) => {
+    const paciente = await tx.user.findUnique({
+      where: { id: pacienteId },
+      select: { role: true },
+    });
+    if (!paciente || paciente.role !== "PACIENTE") {
+      throw new ApiError(404, "Paciente no encontrado");
+    }
+
+    let coberturaId: string | null = null;
+    let numeroAfiliado: string | null = null;
+    let esParticular = true;
+
+    if (datos.coberturaId) {
+      const cobertura = await tx.cobertura.findUnique({
+        where: { id: datos.coberturaId },
+        select: { id: true },
+      });
+      if (!cobertura) {
+        throw new ApiError(404, MSG_COBERTURA_NO_ENCONTRADA);
+      }
+
+      const disponible = await tx.medicoCobertura.count({
+        where: {
+          coberturaId: datos.coberturaId,
+          medico: { role: "MEDICO", isActive: true },
+        },
+      });
+      if (disponible === 0) {
+        throw new ApiError(422, MSG_COBERTURA_NO_DISPONIBLE);
+      }
+
+      numeroAfiliado = datos.numeroAfiliado?.trim() || null;
+      if (!numeroAfiliado) {
+        throw new ApiError(422, MSG_AFILIADO_OBLIGATORIO);
+      }
+      coberturaId = cobertura.id;
+      esParticular = false;
+    }
+
+    await tx.user.update({
+      where: { id: pacienteId },
+      data: {
+        email: datos.email,
+        phone: datos.phone,
+        coberturaId,
+        numeroAfiliado,
+        esParticular,
+      },
+    });
+  });
+}
+
+/**
  * Devuelve un mapa `pacienteId → { coberturaNombre, numeroAfiliado }` para
  * mostrar la cobertura en los listados de pacientes (US-21 / S4).
  */

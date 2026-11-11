@@ -382,7 +382,7 @@ export async function actualizarMedico(
   }
 
   revalidatePath("/admin/medicos");
-  redirect(`/admin/medicos?actualizado=${encodeURIComponent(id)}`);
+  redirect(`/admin/medicos?seleccionado=${encodeURIComponent(id)}`);
 }
 
 function toEspecialidadEnum(value: string) {
