@@ -80,6 +80,29 @@ export const MSG_TURNO_NO_CERRABLE =
 export const MSG_HISTORIA_VACIA = "Todavía no tenés registros en tu historia clínica";
 export const MSG_TEXTO_CLINICO_LARGO = `Puede tener hasta ${LARGO_MAXIMO_TEXTO_CLINICO} caracteres`;
 
+/**
+ * Cambios del Sprint 3 sobre US-25: con turnos futuros reservados no se puede
+ * cambiar la duración, porque los horarios ya reservados dejarían de existir.
+ */
+export function mensajeDuracionConTurnos(cantidad: number): string {
+  const plural = cantidad === 1 ? "" : "s";
+  return `No se puede cambiar la duración: tenés ${cantidad} turno${plural} futuro${plural} reservado${plural}`;
+}
+
+/**
+ * Cambios del Sprint 3 sobre US-28: lista los turnos reservados que las franjas
+ * nuevas dejarían sin horario. Muestra hasta `maximo` y resume el resto.
+ */
+export function mensajeFranjasConTurnos(descripciones: string[], maximo = 5): string {
+  const visibles = descripciones.slice(0, maximo).join(", ");
+  const resto = descripciones.length - maximo;
+  return (
+    `No se puede guardar: estos turnos reservados quedarían fuera de tu disponibilidad: ${visibles}` +
+    (resto > 0 ? ` y ${resto} más` : "") +
+    ". Mantené las franjas que los cubren."
+  );
+}
+
 const ETIQUETAS_ESTADO: Record<EstadoTurno, string> = {
   RESERVADO: "Reservado",
   ATENDIDO: "Atendido",

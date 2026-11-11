@@ -366,6 +366,19 @@ export async function listarTurnosDeMedico(
   }));
 }
 
+/**
+ * Turnos reservados del médico desde una fecha en adelante. Los usa la
+ * configuración de la agenda para no romper reservas (cambios del Sprint 3
+ * sobre US-25 y US-28).
+ */
+export async function turnosReservadosDesde(
+  medicoId: string,
+  desde: FechaISO,
+): Promise<TurnoDeAgenda[]> {
+  const turnos = await listarTurnosDeMedico(medicoId, { desde, hasta: "9999-12-31" });
+  return turnos.filter((t) => t.estado === "RESERVADO");
+}
+
 /** Marca como ausente un turno reservado del médico, de hoy o de días anteriores (US-41). */
 export async function marcarAusente(medicoId: string, turnoId: string, ahora: Date): Promise<void> {
   const prisma = getPrisma();

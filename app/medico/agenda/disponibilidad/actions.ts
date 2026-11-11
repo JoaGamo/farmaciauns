@@ -26,7 +26,14 @@ import {
   reemplazarFranjas,
 } from "@/lib/agenda-repository";
 import { requireMedico } from "@/lib/authorization";
+import {
+  esFuturo,
+  mensajeDuracionConTurnos,
+  mensajeFranjasConTurnos,
+  turnosSinCubrir,
+} from "@/lib/domain/turno";
 import type { FormState } from "@/lib/form-state";
+import { turnosReservadosDesde } from "@/lib/turno-service";
 
 const RUTA_DISPONIBILIDAD = "/medico/agenda/disponibilidad";
 
@@ -75,9 +82,21 @@ export async function guardarDuracionTurno(
     };
   }
 
-  const hoy = hoyEnArgentina(new Date());
+  const ahora = new Date();
+  const hoy = hoyEnArgentina(ahora);
 
   try {
+    // Sprint 3: con turnos futuros reservados la duración no se puede cambiar.
+    const reservados = (await turnosReservadosDesde(medico.id, hoy)).filter((t) =>
+      esFuturo(t, ahora),
+    );
+    if (reservados.length > 0) {
+      return {
+        errors: { duracionTurnoMin: mensajeDuracionConTurnos(reservados.length) },
+        values: { duracionTurnoMin: valorIngresado },
+      };
+    }
+
     const conflictos = franjasSinTurnos(
       await listarFranjasDesde(medico.id, hoy),
       duracionTurnoMin,
@@ -189,14 +208,32 @@ export async function guardarDisponibilidad(
       };
     }
 
+    const nuevas = expandirMes(mes, resultado.franjas, rango.desde);
+
+    // Sprint 3: no se pueden quitar ni acortar franjas con turnos reservados.
+    const reservados = (await turnosReservadosDesde(medico.id, rango.desde)).filter(
+      (t) => t.fecha <= rango.hasta,
+    );
+    const sinCubrir = turnosSinCubrir(
+      reservados,
+      nuevas.map((f) => ({ ...f, duracionTurnoMin })),
+    );
+    if (sinCubrir.length > 0) {
+      return {
+        errors: {
+          _form: mensajeFranjasConTurnos(
+            sinCubrir.map(
+              (t) =>
+                `${etiquetaDia(diaSemanaDe(t.fecha))} ${t.fecha.slice(8, 10)}/${t.fecha.slice(5, 7)} ${formatearHora(t.inicioMin)} (${t.paciente.nombreCompleto})`,
+            ),
+          ),
+        },
+      };
+    }
+
     // Sin franjas, el reemplazo cierra la agenda por lo que queda del mes (US-28).
     agendaCerrada = resultado.franjas.length === 0;
-    await reemplazarFranjas(
-      medico.id,
-      rango,
-      expandirMes(mes, resultado.franjas, rango.desde),
-      duracionTurnoMin,
-    );
+    await reemplazarFranjas(medico.id, rango, nuevas, duracionTurnoMin);
   } catch (error) {
     console.error("Failed to save the monthly availability.", error);
     return {

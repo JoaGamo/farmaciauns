@@ -16,6 +16,8 @@ import {
   esFuturo,
   horariosLibres,
   instanteDeTurno,
+  mensajeDuracionConTurnos,
+  mensajeFranjasConTurnos,
   momentoEnArgentina,
   motivoNoCancelable,
   puedeCerrarse,
@@ -158,6 +160,27 @@ describe("puedeCerrarse (US-40 y US-41)", () => {
     assert.equal(puedeCerrarse({ estado: "RESERVADO", fecha: "2026-11-10" }, "2026-11-16"), true);
     assert.equal(puedeCerrarse({ estado: "RESERVADO", fecha: "2026-11-17" }, "2026-11-16"), false);
     assert.equal(puedeCerrarse({ estado: "ATENDIDO", fecha: "2026-11-16" }, "2026-11-16"), false);
+  });
+});
+
+describe("mensajes de los cambios en US-25 y US-28", () => {
+  test("la duración bloqueada indica cuántos turnos hay", () => {
+    assert.equal(
+      mensajeDuracionConTurnos(1),
+      "No se puede cambiar la duración: tenés 1 turno futuro reservado",
+    );
+    assert.equal(
+      mensajeDuracionConTurnos(3),
+      "No se puede cambiar la duración: tenés 3 turnos futuros reservados",
+    );
+  });
+
+  test("las franjas bloqueadas listan hasta 5 turnos y resumen el resto", () => {
+    const turnos = ["T1", "T2", "T3", "T4", "T5", "T6", "T7"];
+    assert.equal(
+      mensajeFranjasConTurnos(turnos),
+      "No se puede guardar: estos turnos reservados quedarían fuera de tu disponibilidad: T1, T2, T3, T4, T5 y 2 más. Mantené las franjas que los cubren.",
+    );
   });
 });
 
