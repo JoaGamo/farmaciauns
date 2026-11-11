@@ -5,7 +5,6 @@ import {
   esMesHabilitado,
   etiquetaMes,
   formatearMes,
-  generarTurnos,
   hoyEnArgentina,
   mesDeFecha,
   mesesHabilitados,
@@ -13,8 +12,11 @@ import {
   rangoDelMes,
   type FechaISO,
 } from "@/lib/domain/agenda";
+import { esFuturo, horariosLibres } from "@/lib/domain/turno";
 import { listarFranjas, type FranjaGuardada } from "@/lib/agenda-repository";
 import { requireMedico } from "@/lib/authorization";
+import { especialidadFromEnum } from "@/lib/prisma-user-repository";
+import { listarTurnosDeMedico, type TurnoDeAgenda } from "@/lib/turno-service";
 import { AgendaCalendario } from "./agenda-calendario";
 import { SelectorMes } from "./selector-mes";
 import { TurnosDelDia } from "./turnos-del-dia";
@@ -23,33 +25,43 @@ export const dynamic = "force-dynamic";
 
 /**
  * US-27 (RF-01) — "Mi agenda": calendario del mes con los días habilitados y
- * la lista de turnos del día seleccionado, en estado "Disponible"
- * (`?mes=YYYY-MM&dia=YYYY-MM-DD`).
+ * la lista de turnos del día seleccionado (`?mes=YYYY-MM&dia=YYYY-MM-DD`).
+ * Con los cambios del Sprint 3 muestra los turnos reservados con el paciente y
+ * los botones "Atender" (US-40) y "Ausente" (US-41).
  */
 export default async function MiAgendaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ mes?: string; dia?: string }>;
+  searchParams: Promise<{ mes?: string; dia?: string; atendido?: string }>;
 }) {
   const medico = await requireMedico();
-  const { mes: mesParam, dia: diaParam } = await searchParams;
+  const { mes: mesParam, dia: diaParam, atendido } = await searchParams;
 
-  const hoy = hoyEnArgentina(new Date());
+  const ahora = new Date();
+  const hoy = hoyEnArgentina(ahora);
   const mesPedido = mesParam ? parsearMes(mesParam) : null;
   const mes =
     mesPedido && esMesHabilitado(mesPedido, hoy) ? mesPedido : mesDeFecha(hoy);
 
-  const franjas = await listarFranjas(medico.id, rangoDelMes(mes));
+  const [franjas, turnos] = await Promise.all([
+    listarFranjas(medico.id, rangoDelMes(mes)),
+    listarTurnosDeMedico(medico.id, rangoDelMes(mes)),
+  ]);
   const franjasPorDia = new Map<FechaISO, FranjaGuardada[]>();
   for (const franja of franjas) {
     franjasPorDia.set(franja.fecha, [...(franjasPorDia.get(franja.fecha) ?? []), franja]);
   }
+  const turnosPorDia = new Map<FechaISO, TurnoDeAgenda[]>();
+  for (const turno of turnos) {
+    turnosPorDia.set(turno.fecha, [...(turnosPorDia.get(turno.fecha) ?? []), turno]);
+  }
+  // Un día con turnos aparece aunque ya no tenga franjas.
+  const diasConTurnos = new Set([...franjasPorDia.keys(), ...turnosPorDia.keys()]);
 
-  const turnosDisponibles = franjas
-    .filter((f) => f.fecha >= hoy)
-    .reduce((total, f) => total + generarTurnos(f, f.duracionTurnoMin).turnos.length, 0);
-  const diasDisponibles = [...franjasPorDia.keys()].filter((fecha) => fecha >= hoy).length;
-  const diaVisible = elegirDiaVisible([...franjasPorDia.keys()], hoy, diaParam);
+  const turnosDisponibles = horariosLibres(franjas, turnos, ahora).length;
+  const reservados = turnos.filter((t) => t.estado === "RESERVADO" && esFuturo(t, ahora)).length;
+  const diasDisponibles = [...diasConTurnos].filter((fecha) => fecha >= hoy).length;
+  const diaVisible = elegirDiaVisible([...diasConTurnos], hoy, diaParam);
   const urlDisponibilidad = `/medico/agenda/disponibilidad?mes=${formatearMes(mes)}`;
 
   return (
@@ -84,11 +96,12 @@ export default async function MiAgendaPage({
             etiqueta: etiquetaMes(m),
           }))}
         />
-        {franjas.length > 0 && (
+        {diasConTurnos.size > 0 && (
           <p className="text-sm text-on-surface-variant">
             <span className="font-semibold text-on-surface">{turnosDisponibles}</span>{" "}
-            turno{turnosDisponibles === 1 ? "" : "s"} disponible
-            {turnosDisponibles === 1 ? "" : "s"} en{" "}
+            disponible{turnosDisponibles === 1 ? "" : "s"} ·{" "}
+            <span className="font-semibold text-on-surface">{reservados}</span>{" "}
+            reservado{reservados === 1 ? "" : "s"} en{" "}
             <span className="font-semibold text-on-surface">{diasDisponibles}</span>{" "}
             día{diasDisponibles === 1 ? "" : "s"}
             {mes.anio === mesDeFecha(hoy).anio && mes.mes === mesDeFecha(hoy).mes
@@ -98,7 +111,16 @@ export default async function MiAgendaPage({
         )}
       </div>
 
-      {franjas.length === 0 ? (
+      {atendido === "1" && (
+        <div
+          role="status"
+          className="rounded-lg bg-primary-fixed px-4 py-3 text-sm font-medium text-on-primary-fixed"
+        >
+          La atención quedó registrada en la historia clínica y el turno pasó a Atendido.
+        </div>
+      )}
+
+      {diasConTurnos.size === 0 ? (
         <div className="flex flex-col items-center rounded-xl border border-dashed border-outline-variant bg-surface-container-lowest p-10 text-center">
           <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-surface-container-low text-on-surface-variant">
             <CalendarX2 className="h-6 w-6" aria-hidden="true" />
@@ -122,7 +144,7 @@ export default async function MiAgendaPage({
             <AgendaCalendario
               mes={mes}
               hoy={hoy}
-              diasConTurnos={new Set(franjasPorDia.keys())}
+              diasConTurnos={diasConTurnos}
               seleccionado={diaVisible}
             />
           </aside>
@@ -131,7 +153,10 @@ export default async function MiAgendaPage({
               <TurnosDelDia
                 fecha={diaVisible}
                 hoy={hoy}
+                ahora={ahora}
                 franjas={franjasPorDia.get(diaVisible) ?? []}
+                turnos={turnosPorDia.get(diaVisible) ?? []}
+                especialidad={especialidadFromEnum(medico.especialidad)}
               />
             )}
           </div>
