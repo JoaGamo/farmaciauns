@@ -2,6 +2,9 @@
 
 import Link from "next/link";
 import { useState, useMemo } from "react";
+import { darDeBajaMedico, reactivarMedico } from "@/app/actions";
+
+const MEDICOS_POR_PAGINA = 10;
 
 export interface MedicoItem {
   id: string;
@@ -17,7 +20,7 @@ export interface MedicoItem {
 
 interface MedicosClientProps {
   initialMedicos: MedicoItem[];
-  updatedDoctorId?: string;
+  selectedDoctorId?: string;
 }
 
 function formatDni(dni: string | null | undefined): string {
@@ -47,15 +50,14 @@ function especialidadLabel(esp: MedicoItem["especialidad"]): string {
 
 export function MedicosClient({
   initialMedicos,
-  updatedDoctorId,
+  selectedDoctorId,
 }: MedicosClientProps) {
   const [filtroEspecialidad, setFiltroEspecialidad] = useState("todas");
   const [filtroEstado, setFiltroEstado] = useState("todos");
-  const [selectedId, setSelectedId] = useState<string | null>(
-    initialMedicos.find((medico) => medico.id === updatedDoctorId)?.id ??
-      initialMedicos[0]?.id ??
-      null,
-  );
+  const [selectedId, setSelectedId] = useState<string | null>(selectedDoctorId ?? null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [sortAscending, setSortAscending] = useState(true);
+  const [confirmStatusChange, setConfirmStatusChange] = useState(false);
 
   const filtered = useMemo(() => {
     return initialMedicos.filter((m) => {
@@ -82,14 +84,51 @@ export function MedicosClient({
     });
   }, [initialMedicos, filtroEspecialidad, filtroEstado]);
 
-  const selectedMedico = useMemo(() => {
-    const found = filtered.find((m) => m.id === selectedId);
-    return found || filtered[0] || null;
-  }, [filtered, selectedId]);
+  const orderedMedicos = useMemo(
+    () =>
+      [...filtered].sort((a, b) => {
+        const order =
+          (a.lastName ?? "").localeCompare(b.lastName ?? "", "es", {
+            sensitivity: "base",
+          }) ||
+          (a.firstName ?? "").localeCompare(b.firstName ?? "", "es", {
+            sensitivity: "base",
+          });
+        return sortAscending ? order : -order;
+      }),
+    [filtered, sortAscending],
+  );
+  const pageCount = Math.max(1, Math.ceil(orderedMedicos.length / MEDICOS_POR_PAGINA));
+  const page = Math.min(currentPage, pageCount);
+  const firstIndex = (page - 1) * MEDICOS_POR_PAGINA;
+  const visibleMedicos = orderedMedicos.slice(firstIndex, firstIndex + MEDICOS_POR_PAGINA);
+  const selectedMedico =
+    visibleMedicos.find((medico) => medico.id === selectedId) ??
+    visibleMedicos[0] ??
+    null;
+
+  function resetListInteraction() {
+    setCurrentPage(1);
+    setSelectedId(null);
+    setConfirmStatusChange(false);
+  }
+
+  function goToPage(nextPage: number) {
+    const nextFirstIndex = (nextPage - 1) * MEDICOS_POR_PAGINA;
+    setCurrentPage(nextPage);
+    setSelectedId(orderedMedicos[nextFirstIndex]?.id ?? null);
+    setConfirmStatusChange(false);
+  }
+
+  function toggleSortOrder() {
+    setSortAscending((ascending) => !ascending);
+    resetListInteraction();
+  }
 
   const resetFilters = () => {
     setFiltroEspecialidad("todas");
     setFiltroEstado("todos");
+    resetListInteraction();
   };
 
   return (
@@ -128,14 +167,6 @@ export function MedicosClient({
             Cuerpo facultativo y profesionales matriculados en Sala Médica
           </p>
         </div>
-        {updatedDoctorId && initialMedicos.some((medico) => medico.id === updatedDoctorId) && (
-          <p
-            className="rounded-lg bg-primary-fixed px-4 py-3 text-sm font-medium text-on-surface"
-            role="status"
-          >
-            Los cambios del médico se guardaron correctamente.
-          </p>
-        )}
         <Link
           href="/admin/medicos/nuevo"
           className="inline-flex items-center gap-space-xs bg-primary text-on-primary px-space-md py-2 rounded shadow-sm hover:bg-on-surface transition-all active:scale-[0.98]"
@@ -160,7 +191,10 @@ export function MedicosClient({
               <select
                 id="filtro-especialidad"
                 value={filtroEspecialidad}
-                onChange={(e) => setFiltroEspecialidad(e.target.value)}
+                onChange={(e) => {
+                  setFiltroEspecialidad(e.target.value);
+                  resetListInteraction();
+                }}
                 className="w-full appearance-none bg-surface text-on-surface font-body-md text-body-md py-2 pl-3 pr-8 rounded focus:outline-none focus:bg-surface-container transition-colors cursor-pointer border border-outline-variant/40"
               >
                 <option value="todas">Todas</option>
@@ -186,7 +220,10 @@ export function MedicosClient({
               <select
                 id="filtro-estado"
                 value={filtroEstado}
-                onChange={(e) => setFiltroEstado(e.target.value)}
+                onChange={(e) => {
+                  setFiltroEstado(e.target.value);
+                  resetListInteraction();
+                }}
                 className="w-full appearance-none bg-surface text-on-surface font-body-md text-body-md py-2 pl-3 pr-8 rounded focus:outline-none focus:bg-surface-container transition-colors cursor-pointer border border-outline-variant/40"
               >
                 <option value="todos">Todos</option>
@@ -269,6 +306,19 @@ export function MedicosClient({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-space-lg items-start">
           {/* Columna Izquierda: Tabla */}
           <div className="lg:col-span-8 flex flex-col bg-surface-container-lowest rounded shadow-sm overflow-hidden">
+            <div className="flex flex-wrap items-center justify-between gap-2 bg-surface-container px-4 py-3">
+              <span className="font-label-sm text-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">
+                Listado alfabético por apellido
+              </span>
+              <button
+                type="button"
+                onClick={toggleSortOrder}
+                aria-label={`Cambiar orden por apellido a ${sortAscending ? "descendente" : "ascendente"}`}
+                className="rounded px-2 py-1 font-mono text-[10px] font-semibold uppercase text-on-surface-variant hover:bg-surface-container-high"
+              >
+                Apellido {sortAscending ? "A-Z" : "Z-A"}
+              </button>
+            </div>
             <div className="overflow-x-auto w-full">
               <table className="w-full border-collapse text-left text-sm">
                 <thead>
@@ -282,12 +332,15 @@ export function MedicosClient({
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((m) => {
+                  {visibleMedicos.map((m) => {
                     const isSelected = selectedMedico?.id === m.id;
                     return (
                       <tr
                         key={m.id}
-                        onClick={() => setSelectedId(m.id)}
+                        onClick={() => {
+                          setSelectedId(m.id);
+                          setConfirmStatusChange(false);
+                        }}
                         className={`cursor-pointer transition-colors ${
                           isSelected
                             ? "bg-surface-container-high/70"
@@ -304,8 +357,10 @@ export function MedicosClient({
                             aria-label={`Seleccionar a ${m.lastName}, ${m.firstName}`}
                           />
                         </td>
-                        <td className="px-4 py-3 font-medium text-on-surface">
-                          {m.lastName}, {m.firstName}
+                        <td className="min-w-0 px-4 py-3 font-medium text-on-surface">
+                          <span className="block truncate" title={`${m.lastName}, ${m.firstName}`}>
+                            {m.lastName}, {m.firstName}
+                          </span>
                         </td>
                         <td className="px-4 py-3 font-mono text-on-surface-variant">
                           {formatDni(m.dni)}
@@ -313,7 +368,7 @@ export function MedicosClient({
                         <td className="px-4 py-3 text-on-surface-variant">
                           {especialidadLabel(m.especialidad)}
                         </td>
-                        <td className="max-w-[200px] truncate px-4 py-3 font-mono text-xs text-on-surface-variant">
+                        <td className="max-w-[200px] truncate px-4 py-3 font-mono text-xs text-on-surface-variant" title={m.email}>
                           {m.email}
                         </td>
                         <td className="px-4 py-3 text-right">
@@ -335,7 +390,31 @@ export function MedicosClient({
             </div>
 
             <div className="border-t border-surface-container-high bg-surface-container-low px-4 py-2 text-xs text-on-surface-variant">
-              {filtered.length} registro{filtered.length === 1 ? "" : "s"}
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <span>
+                  Mostrando {orderedMedicos.length === 0 ? 0 : firstIndex + 1}-
+                  {Math.min(firstIndex + MEDICOS_POR_PAGINA, orderedMedicos.length)} de{" "}
+                  {orderedMedicos.length} registros • Pág. {page} de {pageCount}
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={page === 1}
+                    onClick={() => goToPage(page - 1)}
+                    className="rounded border border-outline bg-surface-container-high px-3 py-1 text-[10px] font-semibold uppercase text-on-surface enabled:hover:bg-surface-container-highest disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Anterior
+                  </button>
+                  <button
+                    type="button"
+                    disabled={page === pageCount}
+                    onClick={() => goToPage(page + 1)}
+                    className="rounded border border-outline bg-surface-container-high px-3 py-1 text-[10px] font-semibold uppercase text-on-surface enabled:hover:bg-surface-container-highest disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Siguiente
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -499,13 +578,118 @@ export function MedicosClient({
                     REGISTRO AUDITADO #MED-{selectedMedico.dni?.slice(-5) || "00000"} • SOLO LECTURA
                   </span>
                 </div>
-                <Link
-                  href={`/admin/medicos/${selectedMedico.id}/editar`}
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded bg-primary px-4 text-sm font-semibold text-on-primary transition-colors hover:bg-secondary"
-                >
-                  <span className="material-symbols-outlined text-[18px]">edit</span>
-                  Modificar
-                </Link>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <Link
+                    href={`/admin/medicos/${selectedMedico.id}/editar`}
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded bg-surface-container-high px-4 text-sm font-semibold text-on-surface transition-colors hover:bg-surface-container"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">edit</span>
+                    Modificar
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmStatusChange(true)}
+                    className={`inline-flex h-10 items-center justify-center gap-2 rounded px-4 text-sm font-semibold text-on-primary transition-colors ${
+                      selectedMedico.isActive
+                        ? "bg-black hover:bg-on-surface"
+                        : "bg-primary hover:bg-secondary"
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-[18px]">
+                      {selectedMedico.isActive ? "person_remove" : "person_check"}
+                    </span>
+                    {selectedMedico.isActive ? "Dar de baja" : "Reactivar"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {selectedMedico && confirmStatusChange && (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-primary/40 p-4 backdrop-blur-sm"
+              role="alertdialog"
+              aria-modal="true"
+              aria-labelledby="confirm-medico-status-title"
+              aria-describedby="confirm-medico-status-description"
+              onClick={(event) => {
+                if (event.target === event.currentTarget) {
+                  setConfirmStatusChange(false);
+                }
+              }}
+            >
+              <div className="w-full max-w-sm overflow-hidden rounded-lg bg-surface-container-lowest shadow-xl">
+                <div className="flex items-start gap-3 px-5 pt-5">
+                  <span
+                    aria-hidden="true"
+                    className="material-symbols-outlined flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary-fixed text-on-surface"
+                  >
+                    {selectedMedico.isActive ? "person_remove" : "person_check"}
+                  </span>
+                  <div className="min-w-0">
+                    <h2
+                      id="confirm-medico-status-title"
+                      className="text-base font-semibold text-on-surface"
+                    >
+                      {selectedMedico.isActive
+                        ? `¿Dar de baja al Dr. ${selectedMedico.firstName} ${selectedMedico.lastName}?`
+                        : `¿Reactivar al Dr. ${selectedMedico.firstName} ${selectedMedico.lastName}?`}
+                    </h2>
+                    <p
+                      id="confirm-medico-status-description"
+                      className="mt-1 text-sm text-on-surface-variant"
+                    >
+                      {selectedMedico.isActive
+                        ? "No podrá iniciar sesión ni recibir nuevos turnos. Sus turnos pasados y registros clínicos se conservarán."
+                        : "Volverá a atender en la sala. Conservará sus datos, contraseña y configuración de agenda."}
+                    </p>
+                  </div>
+                </div>
+                <div className="mx-5 mt-4 rounded-md border border-outline-variant/50 bg-primary-fixed/50 px-3 py-2 text-xs text-on-surface">
+                  <div className="flex justify-between gap-3 border-b border-on-surface/10 py-1">
+                    <span className="text-on-surface-variant">Profesional</span>
+                    <span className="truncate font-semibold">
+                      Dr. {selectedMedico.firstName} {selectedMedico.lastName}
+                    </span>
+                  </div>
+                  <div className="flex justify-between gap-3 border-b border-on-surface/10 py-1">
+                    <span className="text-on-surface-variant">Especialidad</span>
+                    <span className="truncate font-semibold">
+                      {especialidadLabel(selectedMedico.especialidad)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between gap-3 border-b border-on-surface/10 py-1 font-mono">
+                    <span className="font-sans text-on-surface-variant">Matrícula</span>
+                    <span>{selectedMedico.matricula || "MN —"}</span>
+                  </div>
+                  <div className="flex justify-between gap-3 py-1">
+                    <span className="text-on-surface-variant">Estado actual</span>
+                    <span className="rounded bg-black px-2 py-0.5 text-[10px] font-bold text-white">
+                      {selectedMedico.isActive ? "ACTIVO" : "INACTIVO"}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex flex-col-reverse justify-end gap-2 px-5 py-5 sm:flex-row">
+                  <button
+                    type="button"
+                    onClick={() => setConfirmStatusChange(false)}
+                    className="inline-flex h-9 items-center justify-center rounded border border-outline bg-surface-container-high px-4 text-xs font-medium text-on-surface hover:bg-surface-container-highest"
+                  >
+                    Cancelar
+                  </button>
+                  <form action={selectedMedico.isActive ? darDeBajaMedico : reactivarMedico}>
+                    <input type="hidden" name="id" value={selectedMedico.id} />
+                    <button
+                      type="submit"
+                      className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded bg-black px-4 text-xs font-semibold text-white hover:bg-on-surface"
+                    >
+                      <span aria-hidden="true" className="material-symbols-outlined text-[16px]">
+                        {selectedMedico.isActive ? "person_remove" : "person_check"}
+                      </span>
+                      {selectedMedico.isActive ? "Dar de baja" : "Reactivar"}
+                    </button>
+                  </form>
+                </div>
               </div>
             </div>
           )}

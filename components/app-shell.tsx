@@ -79,7 +79,7 @@ export async function AppShell({ children }: { children: ReactNode }) {
       </header>
 
       <div className="flex min-h-screen pt-12">
-        <aside className="flex max-h-[calc(100vh-3rem)] w-52 shrink-0 flex-col justify-between overflow-y-auto border-r border-surface-container-high bg-surface-container-lowest px-2 py-3">
+        <aside className="sticky top-12 flex h-[calc(100vh-3rem)] w-52 shrink-0 self-start flex-col justify-between overflow-y-auto border-r border-surface-container-high bg-surface-container-lowest px-2 py-3">
           <div>
             <h2 className="px-2 pb-2 text-[10px] font-semibold uppercase tracking-wider text-secondary">
               {sidebarLabel(role)}
@@ -91,7 +91,7 @@ export async function AppShell({ children }: { children: ReactNode }) {
           </p>
         </aside>
 
-        <main className="min-w-0 flex-1 overflow-y-auto p-5 lg:p-6">
+        <main className="min-w-0 flex-1 p-5 lg:p-6">
           {children}
         </main>
       </div>

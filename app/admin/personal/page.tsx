@@ -1,9 +1,5 @@
 import Link from "next/link";
-import {
-  darDeBajaPersonalAdministrativo,
-  reactivarPersonalAdministrativo,
-} from "@/app/actions";
-import { ListadoUsuarios } from "@/components/listado-usuarios";
+import { ListadoPersonalAdministrativo } from "@/components/listado-personal-administrativo";
 import { toUsuarioPublico } from "@/lib/domain/usuario";
 import { getUserRepository } from "@/lib/repository";
 import { requireRole } from "@/lib/authorization";
@@ -14,60 +10,23 @@ export const dynamic = "force-dynamic";
  * US-13 (RF-25) — Listado de personal administrativo (exclusivo ADMINISTRADOR).
  * Ordenado alfabéticamente por apellido (lo garantiza `listByRole`).
  */
-export default async function ListadoPersonalAdministrativoPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ activated?: string; deactivated?: string }>;
-}) {
+export default async function ListadoPersonalAdministrativoPage() {
   await requireRole(["admin"]);
-  const { activated, deactivated } = await searchParams;
 
-  const personal = (await getUserRepository().listByRole("ADMINISTRATIVO"))
-    .map(toUsuarioPublico);
+  const personal = (await getUserRepository().listByRole("ADMINISTRATIVO")).map(
+    (usuario) => ({
+      ...toUsuarioPublico(usuario),
+      createdAt: usuario.createdAt.toLocaleDateString("es-AR", {
+        timeZone: "America/Argentina/Buenos_Aires",
+      }),
+      updatedAt: usuario.updatedAt.toLocaleString("es-AR", {
+        timeZone: "America/Argentina/Buenos_Aires",
+      }),
+    }),
+  );
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col">
-        <div className="mb-6 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
-          <span>Módulo administrativo</span>
-          <span className="text-outline">/</span>
-          <span className="text-on-surface">Listado de personal administrativo</span>
-        </div>
-
-        <div className="mb-6 flex flex-col gap-4 rounded-xl bg-surface-container-lowest p-6 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">
-              Listado de personal administrativo
-            </h1>
-            <p className="mt-1 text-on-surface-variant">
-              Nómina institucional del personal de admisiones, recepción y
-              secretaría.
-            </p>
-          </div>
-          <Link
-            href="/admin/personal/nuevo"
-            className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded bg-primary px-4 text-sm font-semibold text-on-primary transition-colors hover:bg-secondary"
-          >
-            + Nuevo administrativo
-          </Link>
-        </div>
-
-        {deactivated === "1" && (
-          <div
-            role="status"
-            className="mb-6 rounded-lg bg-primary-fixed px-4 py-3 text-sm font-medium text-on-primary-fixed"
-          >
-            El administrativo fue dado de baja correctamente.
-          </div>
-        )}
-        {activated === "1" && (
-          <div
-            role="status"
-            className="mb-6 rounded-lg bg-primary-fixed px-4 py-3 text-sm font-medium text-on-primary-fixed"
-          >
-            El administrativo fue reactivado correctamente.
-          </div>
-        )}
-
         {personal.length === 0 ? (
           <div className="flex flex-col items-center justify-center rounded-xl bg-surface-container-low p-12 text-center">
             <div className="mb-4 flex h-12 w-12 items-center justify-center rounded bg-surface-container-high text-on-surface-variant">
@@ -101,12 +60,7 @@ export default async function ListadoPersonalAdministrativoPage({
             </Link>
           </div>
         ) : (
-          <ListadoUsuarios
-            usuarios={personal}
-            puedeEliminar
-            accionBaja={darDeBajaPersonalAdministrativo}
-            accionReactivar={reactivarPersonalAdministrativo}
-          />
+          <ListadoPersonalAdministrativo usuarios={personal} />
         )}
     </div>
   );

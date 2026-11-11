@@ -756,7 +756,7 @@ export async function darDeBajaPersonalAdministrativo(
   await repo.deactivate(id);
 
   revalidatePath("/admin/personal");
-  redirect("/admin/personal?deactivated=1");
+  redirect("/admin/personal");
 }
 
 /**
@@ -781,5 +781,105 @@ export async function reactivarPersonalAdministrativo(
   await repo.activate(id);
 
   revalidatePath("/admin/personal");
-  redirect("/admin/personal?activated=1");
+  redirect("/admin/personal");
+}
+
+/** US-47 — Dar de baja un médico sin borrar sus datos ni su agenda. */
+export async function darDeBajaMedico(formData: FormData): Promise<void> {
+  await requireRole(["admin"]);
+
+  const id = formData.get("id");
+  if (typeof id !== "string" || !id) {
+    throw new Error("No se recibió un médico válido para dar de baja.");
+  }
+
+  const repo = getUserRepository();
+  const usuario = await repo.findById(id);
+  if (!usuario || usuario.role !== "MEDICO" || !usuario.active) {
+    throw new Error("El médico seleccionado no está activo.");
+  }
+
+  await repo.deactivate(id);
+  revalidatePath("/admin/medicos");
+  redirect(`/admin/medicos?seleccionado=${encodeURIComponent(id)}`);
+}
+
+/** US-48 — Reactivar un médico sin modificar sus datos ni su agenda. */
+export async function reactivarMedico(formData: FormData): Promise<void> {
+  await requireRole(["admin"]);
+
+  const id = formData.get("id");
+  if (typeof id !== "string" || !id) {
+    throw new Error("No se recibió un médico válido para reactivar.");
+  }
+
+  const repo = getUserRepository();
+  const usuario = await repo.findById(id);
+  if (!usuario || usuario.role !== "MEDICO" || usuario.active) {
+    throw new Error("El médico seleccionado no está dado de baja.");
+  }
+
+  await repo.activate(id);
+  revalidatePath("/admin/medicos");
+  redirect(`/admin/medicos?seleccionado=${encodeURIComponent(id)}`);
+}
+
+/** US-51 — Reactivar un paciente conservando su información. */
+export async function reactivarPaciente(formData: FormData): Promise<void> {
+  await requireRole(["admin"]);
+
+  const id = formData.get("id");
+  if (typeof id !== "string" || !id) {
+    throw new Error("No se recibió un paciente válido para reactivar.");
+  }
+
+  const repo = getUserRepository();
+  const usuario = await repo.findById(id);
+  if (!usuario || usuario.role !== "PACIENTE" || usuario.active) {
+    throw new Error("El paciente seleccionado no está dado de baja.");
+  }
+
+  await repo.activate(id);
+  revalidatePath("/pacientes");
+  redirect(`/pacientes?reactivado=${encodeURIComponent(id)}`);
+}
+
+/** US-54 — Dar de baja una enfermera sin alterar los turnos ya reservados. */
+export async function darDeBajaEnfermera(formData: FormData): Promise<void> {
+  await requireRole(["admin"]);
+
+  const id = formData.get("id");
+  if (typeof id !== "string" || !id) {
+    throw new Error("No se recibió una enfermera válida para dar de baja.");
+  }
+
+  const repo = getUserRepository();
+  const usuario = await repo.findById(id);
+  if (!usuario || usuario.role !== "ENFERMERA" || !usuario.active) {
+    throw new Error("La enfermera seleccionada no está activa.");
+  }
+
+  await repo.deactivate(id);
+  revalidatePath("/admin/enfermeras");
+  redirect("/admin/enfermeras");
+}
+
+/** US-55 — Reactivar una enfermera conservando sus datos. */
+export async function reactivarEnfermera(formData: FormData): Promise<void> {
+  await requireRole(["admin"]);
+
+  const id = formData.get("id");
+  if (typeof id !== "string" || !id) {
+    throw new Error("No se recibió una enfermera válida para reactivar.");
+  }
+
+  const repo = getUserRepository();
+  const usuario = await repo.findById(id);
+  if (!usuario || usuario.role !== "ENFERMERA" || usuario.active) {
+    throw new Error("La enfermera seleccionada no está dada de baja.");
+  }
+
+  await repo.activate(id);
+  revalidatePath("/admin/enfermeras");
+  redirect("/admin/enfermeras");
 }

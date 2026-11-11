@@ -35,7 +35,11 @@ export function AltaPersonalAdministrativoForm() {
           name="firstName"
           required
           error={errores.firstName}
+          hint="Máximo 50 caracteres"
           placeholder="Ej. Mariana Lucía"
+          pattern="\p{L}+(?:[ '\u2019-]\p{L}+)*"
+          allowedCharacters={/[\p{L} '\u2019-]/u}
+          maxLength={50}
           autoComplete="given-name"
           defaultValue={state.values?.firstName}
         />
@@ -44,7 +48,11 @@ export function AltaPersonalAdministrativoForm() {
           name="lastName"
           required
           error={errores.lastName}
+          hint="Máximo 50 caracteres"
           placeholder="Ej. Fernández"
+          pattern="\p{L}+(?:[ '\u2019-]\p{L}+)*"
+          allowedCharacters={/[\p{L} '\u2019-]/u}
+          maxLength={50}
           autoComplete="family-name"
           defaultValue={state.values?.lastName}
         />
@@ -74,7 +82,10 @@ export function AltaPersonalAdministrativoForm() {
           type="tel"
           required
           numeric
+          pattern="[0-9+ ()-]+"
+          allowedCharacters={/[0-9+ ()-]/}
           error={errores.phone}
+          hint="Mínimo 12 dígitos"
           placeholder="+54 11 4872-9010"
           autoComplete="tel"
           defaultValue={state.values?.phone}

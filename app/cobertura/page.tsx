@@ -1,129 +1,86 @@
-import Link from "next/link";
-import { requireRole } from "@/lib/authorization";
 import { getCurrentDbUser } from "@/lib/auth";
+import { requireRole } from "@/lib/authorization";
 import {
   listarCoberturasDisponibles,
   obtenerCoberturaDePaciente,
 } from "@/lib/cobertura-service";
-import { CoberturaForm } from "./cobertura-form";
+import { MisDatosForm } from "./mis-datos-form";
 
 export const dynamic = "force-dynamic";
 
-/**
- * US-21 (RF-05b) — "Mi cobertura" (solo PACIENTE).
- *
- * Si no hay cobertura registrada muestra un banner informativo y el formulario
- * (desplegable "Particular" + disponibles). Si ya la tiene, muestra una card
- * "COBERTURA ACTIVA". Modificar la cobertura corresponde a RF-15.
- */
-export default async function MiCoberturaPage() {
-  await requireRole(["paciente"]);
-
-  const dbUser = await getCurrentDbUser();
-  const pacienteId = dbUser?.id ?? "";
-
-  const [cobertura, disponibles] = await Promise.all([
-    obtenerCoberturaDePaciente(pacienteId),
-    listarCoberturasDisponibles(),
-  ]);
-
-  const tieneCobertura =
-    cobertura.coberturaId != null || cobertura.esParticular;
-
-  return (
-    <div className="mx-auto flex max-w-4xl flex-col">
-          <div className="mb-6 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
-            <Link
-              href="/inicio"
-              className="text-on-surface-variant transition-colors hover:text-on-surface"
-            >
-              Inicio
-            </Link>
-            <span className="text-outline">/</span>
-            <span className="text-on-surface">Cobertura médica</span>
-          </div>
-
-          <div className="mb-6 flex flex-col gap-1">
-            <h1 className="text-2xl font-bold tracking-tight">Mi cobertura</h1>
-            <p className="mt-1 text-on-surface-variant">
-              Gestión de afiliación y estado de prestaciones.
-            </p>
-          </div>
-
-          {tieneCobertura ? (
-            <ResumenCobertura
-              nombre={cobertura.nombre ?? "Particular"}
-              numeroAfiliado={cobertura.numeroAfiliado}
-            />
-          ) : (
-            <>
-              <div className="mb-4 flex items-start gap-2 rounded-lg bg-surface-container-low p-4">
-                <span className="material-symbols-outlined text-[20px] text-on-surface">
-                  info
-                </span>
-                <p className="text-sm font-medium text-on-surface">
-                  Todavía no registraste tu cobertura.
-                </p>
-              </div>
-              <CoberturaForm coberturas={disponibles} />
-            </>
-          )}
-        </div>
-  );
+function formatearDni(value: string | null): string {
+  const digits = (value ?? "").replace(/\D/g, "");
+  if (digits.length === 8) {
+    return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5)}`;
+  }
+  if (digits.length === 7) {
+    return `${digits.slice(0, 1)}.${digits.slice(1, 4)}.${digits.slice(4)}`;
+  }
+  return value ?? "—";
 }
 
-/**
- * Vista de solo lectura cuando el paciente YA tiene cobertura registrada
- * (US-21 CA4). Modificar la cobertura corresponde a RF-15.
- */
-function ResumenCobertura({
-  nombre,
-  numeroAfiliado,
-}: {
-  nombre: string;
-  numeroAfiliado: string | null;
-}) {
-  return (
-    <div className="flex flex-col gap-6">
-      <section className="overflow-hidden rounded-xl bg-surface-container-lowest shadow-sm">
-        <div className="rounded-t-xl bg-surface-container-low p-5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="h-2.5 w-2.5 rounded-full bg-primary" />
-              <span className="text-xs font-bold uppercase tracking-wider text-on-surface">
-                Cobertura activa
-              </span>
-            </div>
-            <span className="material-symbols-outlined text-[22px] text-on-surface">
-              verified_user
-            </span>
-          </div>
-        </div>
-        <dl className="flex flex-col gap-4 p-5">
-          <div className="flex items-baseline justify-between gap-4">
-            <dt className="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
-              Cobertura
-            </dt>
-            <dd className="text-base font-semibold text-on-surface">{nombre}</dd>
-          </div>
-          <div className="flex items-baseline justify-between gap-4 border-t border-surface-container-high pt-4">
-            <dt className="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
-              Número de afiliado
-            </dt>
-            <dd className="font-mono text-sm text-on-surface">
-              {numeroAfiliado ?? "—"}
-            </dd>
-          </div>
-        </dl>
-      </section>
+export default async function MisDatosPage() {
+  await requireRole(["paciente"]);
+  const paciente = await getCurrentDbUser();
+  if (!paciente || paciente.role !== "PACIENTE") {
+    throw new Error("No se encontró la cuenta del paciente.");
+  }
 
-      <div className="rounded-xl bg-surface-container-lowest p-5 text-sm text-on-surface-variant shadow-sm">
-        <span className="font-semibold text-on-surface">
-          Actualizaciones o cambios
-        </span>{" "}
-        — Para modificaciones en tu plan o titularidad, acercate a la secretaría
-        de admisión de la sala.
-      </div>
+  const [cobertura, coberturasDisponibles] = await Promise.all([
+    obtenerCoberturaDePaciente(paciente.id),
+    listarCoberturasDisponibles(),
+  ]);
+  const coberturas = [...coberturasDisponibles];
+  if (
+    cobertura.coberturaId &&
+    cobertura.nombre &&
+    !coberturas.some((item) => item.id === cobertura.coberturaId)
+  ) {
+    coberturas.push({
+      id: cobertura.coberturaId,
+      nombre: cobertura.nombre,
+    });
+  }
+
+  return (
+    <div className="mx-auto flex max-w-6xl flex-col">
+      <nav
+        aria-label="Ruta de navegación"
+        className="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-on-surface-variant"
+      >
+        <span>Portal paciente</span>
+        <span aria-hidden="true" className="text-outline">›</span>
+        <span className="text-on-surface">Mi perfil</span>
+      </nav>
+
+      <header className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Mis datos</h1>
+          <p className="mt-1 max-w-2xl text-sm text-on-surface-variant">
+            Consultá tu información personal registrada y administrá tus datos
+            de contacto y cobertura médica.
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2 rounded bg-primary-fixed px-3 py-2 font-mono text-[10px] font-semibold uppercase text-on-surface-variant">
+          <span>DNI {formatearDni(paciente.dni)}</span>
+          <span aria-hidden="true">•</span>
+          <span>Cobertura {cobertura.nombre ?? "Particular"}</span>
+        </div>
+      </header>
+
+      <MisDatosForm
+        paciente={{
+          firstName: paciente.firstName ?? "",
+          lastName: paciente.lastName ?? "",
+          dni: paciente.dni ?? "",
+          birthDate: paciente.birthDate?.toISOString() ?? null,
+          email: paciente.email,
+          phone: paciente.phone ?? "",
+          coberturaId: cobertura.coberturaId ?? "",
+          numeroAfiliado: cobertura.numeroAfiliado ?? "",
+        }}
+        coberturas={coberturas}
+      />
     </div>
   );
 }

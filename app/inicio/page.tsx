@@ -102,10 +102,9 @@ export default async function InicioPage() {
                 <div className={styles.cardIcon}>
                   <ShieldIcon />
                 </div>
-                <h2>Mi cobertura</h2>
+                <h2>Mis datos</h2>
                 <p>
-                  Consultá y registrá tu cobertura médica y tu número de
-                  afiliado.
+                  Actualizá tus datos de contacto y cobertura médica.
                 </p>
               </Link>
 

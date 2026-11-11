@@ -6,9 +6,9 @@ export const dynamic = "force-dynamic";
 export default async function MedicosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ actualizado?: string }>;
+  searchParams: Promise<{ seleccionado?: string }>;
 }) {
-  const { actualizado } = await searchParams;
+  const { seleccionado } = await searchParams;
   const prisma = getPrisma();
 
   const medicosDb = await prisma.user.findMany({
@@ -37,7 +37,7 @@ export default async function MedicosPage({
   return (
     <MedicosClient
       initialMedicos={medicos}
-      updatedDoctorId={actualizado}
+      selectedDoctorId={seleccionado}
     />
   );
 }

@@ -5,6 +5,7 @@ import { getUserRepository } from "@/lib/repository";
 import { requireRole } from "@/lib/authorization";
 import { coberturasDePacientes } from "@/lib/cobertura-service";
 import { NuevaBusqueda } from "./nueva-busqueda";
+import { reactivarPaciente } from "@/app/actions";
 
 /**
  * US-12 (RF-24) — Búsqueda de pacientes (ADMINISTRADOR y MÉDICO).
@@ -16,11 +17,11 @@ import { NuevaBusqueda } from "./nueva-busqueda";
 export default async function PacientesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; reactivado?: string }>;
 }) {
   const role = await requireRole(["admin", "medico"]);
 
-  const { q } = await searchParams;
+  const { q, reactivado } = await searchParams;
   const query = (q ?? "").trim();
 
   const repo = getUserRepository();
@@ -139,8 +140,11 @@ export default async function PacientesPage({
           </div>
         ) : (
           <ListadoUsuarios
+            key={reactivado ?? query}
             usuarios={pacientesConCobertura}
             puedeEliminar={role === "admin"}
+            accionReactivar={reactivarPaciente}
+            selectedUserId={role === "admin" ? reactivado : undefined}
           />
         )}
     </div>
