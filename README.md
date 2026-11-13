@@ -53,6 +53,24 @@ define su contraseña desde el enlace recibido.
 El alta administrativa de enfermeras también envía una invitación nativa de
 Clerk. La enfermera define su contraseña al aceptar la invitación.
 
+## Recordatorios de turnos (US-32)
+
+Los turnos reservados reciben un recordatorio por email dentro de las 24 horas
+previas al horario. La tarea programada consulta la ruta
+`GET /api/cron/turno-reminders` cada 15 minutos; requiere configurar en el
+entorno de despliegue:
+
+- `RESEND_API_KEY`: clave de API de Resend.
+- `EMAIL_FROM`: remitente verificado en Resend, por ejemplo
+  `Farmacia UNS <turnos@tu-dominio-verificado>`.
+- `CRON_SECRET`: secreto usado para autenticar la tarea programada mediante
+  `Authorization: Bearer <CRON_SECRET>`.
+
+El calendario está definido en `vercel.json`. Si se usa otro proveedor de
+despliegue, hay que programar la misma ruta con ese intervalo y enviar el
+encabezado de autorización. Luego de desplegar el nuevo schema, aplicar los
+cambios en la base de datos con `pnpm exec prisma db push`.
+
 ## 🔐 Usuarios y Credenciales de Prueba
 
 Para probar las diferentes funcionalidades y permisos de la aplicación según el rol, se han creado los siguientes usuarios desde el Dashboard de Clerk. 
