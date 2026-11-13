@@ -212,6 +212,8 @@ model Turno {
   finMin       Int
   slotMedico   String?       @unique
   slotPaciente String?       @unique
+  recordatorioEnviadoAt     DateTime?
+  recordatorioProcesandoAt  DateTime?
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 

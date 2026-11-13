@@ -7,7 +7,7 @@
     "build": "prisma generate && next build --webpack",
     "start": "next start",
     "lint": "eslint",
-    "test": "tsx --test tests/cobertura.test.ts tests/vacuna.test.ts lib/domain/agenda.test.ts lib/domain/usuario.test.ts lib/domain/turno.test.ts",
+    "test": "tsx --test tests/cobertura.test.ts tests/vacuna.test.ts lib/domain/agenda.test.ts lib/domain/usuario.test.ts lib/domain/turno.test.ts lib/domain/recordatorio.test.ts",
     "db:seed": "pnpm dlx tsx prisma/seed.ts",
     "seed": "prisma db seed",
     "postinstall": "prisma generate"
