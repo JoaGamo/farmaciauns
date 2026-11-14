@@ -678,18 +678,7 @@ export function MedicosClient({
                   >
                     Cancelar
                   </button>
-                  {selectedMedico.isActive ? (
-                    <button
-                      type="button"
-                      onClick={() => setConfirmStatusChange(false)}
-                      className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded bg-black px-4 text-xs font-semibold text-white hover:bg-on-surface"
-                    >
-                      <span aria-hidden="true" className="material-symbols-outlined text-[16px]">
-                        person_remove
-                      </span>
-                      Dar de baja
-                    </button>
-                  ) : (
+                  {!selectedMedico.isActive && (
                     <form action={reactivarMedico}>
                       <input type="hidden" name="id" value={selectedMedico.id} />
                       <button
