@@ -5,11 +5,9 @@ const globalForPrisma = globalThis as typeof globalThis & {
   prisma?: PrismaClient;
 };
 
-let prismaClient = globalForPrisma.prisma;
-
 export function getPrisma() {
-  if (prismaClient) {
-    return prismaClient;
+  if (globalForPrisma.prisma) {
+    return globalForPrisma.prisma;
   }
 
   const connectionString = process.env.DATABASE_URL?.trim();
@@ -18,13 +16,9 @@ export function getPrisma() {
     throw new Error("DATABASE_URL must be set before using Prisma.");
   }
 
-  prismaClient = new PrismaClient({
+  globalForPrisma.prisma = new PrismaClient({
     adapter: new PrismaNeon({ connectionString }),
   });
 
-  if (process.env.NODE_ENV !== "production") {
-    globalForPrisma.prisma = prismaClient;
-  }
-
-  return prismaClient;
+  return globalForPrisma.prisma;
 }
