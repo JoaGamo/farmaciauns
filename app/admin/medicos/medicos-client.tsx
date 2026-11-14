@@ -678,21 +678,36 @@ export function MedicosClient({
                   >
                     Cancelar
                   </button>
-                  <form action={selectedMedico.isActive ? darDeBajaMedico : reactivarMedico}>
-                    <input type="hidden" name="id" value={selectedMedico.id} />
+                  {selectedMedico.isActive ? (
                     <button
-                      type="submit"
+                      type="button"
+                      onClick={() => setConfirmStatusChange(false)}
                       className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded bg-black px-4 text-xs font-semibold text-white hover:bg-on-surface"
                     >
                       <span aria-hidden="true" className="material-symbols-outlined text-[16px]">
-                        {selectedMedico.isActive ? "person_remove" : "person_check"}
+                        person_remove
                       </span>
-                      {selectedMedico.isActive ? "Dar de baja" : "Reactivar"}
+                      Dar de baja
                     </button>
-                  </form>
+                  ) : (
+                    <form action={reactivarMedico}>
+                      <input type="hidden" name="id" value={selectedMedico.id} />
+                      <button
+                        type="submit"
+                        className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded bg-black px-4 text-xs font-semibold text-white hover:bg-on-surface"
+                      >
+                        <span aria-hidden="true" className="material-symbols-outlined text-[16px]">
+                          person_check
+                        </span>
+                        Reactivar
+                      </button>
+                    </form>
+                  )}
                 </div>
                 {selectedMedico.isActive && (
-                  <DarDeBajaMedico medicoId={selectedMedico.id} />
+                  <div id="dar-de-baja-medico" className="px-5 pb-5">
+                    <DarDeBajaMedico medicoId={selectedMedico.id} />
+                  </div>
                 )}
               </div>
             </div>
@@ -705,7 +720,10 @@ export function MedicosClient({
 
 function DarDeBajaMedico({ medicoId }: { medicoId: string }) {
   const router = useRouter();
-  const [state, formAction, pending] = useActionState(darDeBajaMedico, {});
+  const [state, formAction, pending] = useActionState<
+    { ok: boolean; error?: string },
+    FormData
+  >((_state, formData) => darDeBajaMedico(formData), { ok: true });
 
   useEffect(() => {
     if (state.ok) router.refresh();

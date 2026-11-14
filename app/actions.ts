@@ -41,6 +41,8 @@ import {
   MSG_STOCK_MAXIMO,
   MSG_STOCK_INSUFICIENTE,
 } from "@/lib/domain/vacuna";
+import { momentoEnArgentina, esFuturo } from "@/lib/domain/turno";
+import { turnosReservadosDesde } from "@/lib/turno-service";
 
 function leerString(formData: FormData, campo: string): string {
   const valor = formData.get(campo);
@@ -552,45 +554,6 @@ export async function eliminarUsuario(formData: FormData): Promise<void> {
   revalidatePath("/pacientes");
 }
 
-type DarDeBajaMedicoState = {
-  error?: string;
-  ok?: boolean;
-};
-
-export async function darDeBajaMedico(
-  _previousState: DarDeBajaMedicoState,
-  formData: FormData,
-): Promise<DarDeBajaMedicoState> {
-  await requireRole(["admin"]);
-
-  const id = formData.get("id");
-  if (typeof id !== "string" || !id) {
-    return { error: "No se identificó el médico." };
-  }
-
-  const prisma = getPrisma();
-  const medico = await prisma.user.findUnique({
-    where: { id },
-    select: { role: true, isActive: true },
-  });
-  if (!medico || medico.role !== "MEDICO") {
-    return { error: "No se encontró el médico." };
-  }
-  if (!medico.isActive) {
-    return { error: "El médico ya está inactivo." };
-  }
-
-  await prisma.user.update({
-    where: { id },
-    data: { isActive: false },
-  });
-
-  revalidatePath("/admin/medicos");
-  revalidatePath("/inicio");
-  revalidatePath("/medico");
-  return { ok: true };
-}
-
 // ---------------------------------------------------------------------------
 // Coberturas Médicas (RF-05b) y Stock de Vacunas (RF-04a)
 // ---------------------------------------------------------------------------
@@ -824,7 +787,9 @@ export async function reactivarPersonalAdministrativo(
 }
 
 /** US-47 — Dar de baja un médico sin borrar sus datos ni su agenda. */
-export async function darDeBajaMedico(formData: FormData): Promise<void> {
+export async function darDeBajaMedico(
+  formData: FormData,
+): Promise<{ ok: boolean; error?: string }> {
   await requireRole(["admin"]);
 
   const id = formData.get("id");
@@ -836,6 +801,20 @@ export async function darDeBajaMedico(formData: FormData): Promise<void> {
   const usuario = await repo.findById(id);
   if (!usuario || usuario.role !== "MEDICO" || !usuario.active) {
     throw new Error("El médico seleccionado no está activo.");
+  }
+
+  // CA2: no dar de baja si hay turnos futuros reservados.
+  const ahora = new Date();
+  const hoy = momentoEnArgentina(ahora).fecha;
+  const reservas = (await turnosReservadosDesde(id, hoy)).filter((t) =>
+    esFuturo(t, ahora),
+  );
+  if (reservas.length > 0) {
+    const plural = reservas.length === 1 ? "" : "s";
+    return {
+      ok: false,
+      error: `No se puede dar de baja: tiene ${reservas.length} turno${plural} reservado${plural}`,
+    };
   }
 
   await repo.deactivate(id);
