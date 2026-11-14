@@ -740,34 +740,6 @@ export async function registrarEgresoStock(
  * US-18 (RF-17) — Dar de baja personal administrativo sin borrar sus datos.
  */
 export async function darDeBajaPersonalAdministrativo(
-Tests sobre US-47 (Por hacer: Pasar al excel)
-
-Todos los tests son con Loid Forger (loid@gamopc.com.ar)
-CA1: Dado un médico activo sin turnos futuros reservados, cuando el
-administrador confirma la baja, entonces el médico pasa a "Inactivo" y no
-puede iniciar sesión.
-
-Éxito. Loid recibe "Tu cuenta no está activa. Contactá a un administrador para solicitar acceso." al iniciar sesión.
-
-Nota: Simultaneamente se valida US-48 CA1 con éxito, se puede reactivar al mismo médico y este podrá iniciar sesión.
-
-CA2: Dado un médico con 3 turnos futuros reservados, cuando el
-administrador intenta darlo de baja, entonces el sistema informa "No se
-puede dar de baja: tiene 3 turnos reservados" y el médico sigue activo.
-
-Éxito con Paciente Ejemplo contra Loid Forger
-Al administrador cuando intenta darlo de baja se le retorna "No se puede dar de baja: tiene 3 turnos reservados"
-
-CA3: Dado un médico dado de baja, cuando un paciente busca médicos
-para reservar, entonces el médico no aparece.
-
-Éxito! El médico desactivado no aparece.
-
-CA4: Dado un médico dado de baja, cuando se consulta la historia clínica
-de sus pacientes, entonces los registros que cargó siguen visibles.
-
-Éxito! Desde la cuenta de un paciente que fue atendido por un médico desactivado, todavía se ven las observaciones realizadas
-por el mismo médico desactivado.
   formData: FormData,
 ): Promise<void> {
   await requireRole(["admin"]);
@@ -805,35 +777,7 @@ export async function reactivarPersonalAdministrativo(
   const repo = getUserRepository();
   const usuario = await repo.findById(id);
   if (!usuario || usuario.role !== "ADMINISTRATIVO") {
-    throw new Error("El usuario seleccionado no es un administraTests sobre US-47 (Por hacer: Pasar al excel)
-
-Todos los tests son con Loid Forger (loid@gamopc.com.ar)
-CA1: Dado un médico activo sin turnos futuros reservados, cuando el
-administrador confirma la baja, entonces el médico pasa a "Inactivo" y no
-puede iniciar sesión.
-
-Éxito. Loid recibe "Tu cuenta no está activa. Contactá a un administrador para solicitar acceso." al iniciar sesión.
-
-Nota: Simultaneamente se valida US-48 CA1 con éxito, se puede reactivar al mismo médico y este podrá iniciar sesión.
-
-CA2: Dado un médico con 3 turnos futuros reservados, cuando el
-administrador intenta darlo de baja, entonces el sistema informa "No se
-puede dar de baja: tiene 3 turnos reservados" y el médico sigue activo.
-
-Éxito con Paciente Ejemplo contra Loid Forger
-Al administrador cuando intenta darlo de baja se le retorna "No se puede dar de baja: tiene 3 turnos reservados"
-
-CA3: Dado un médico dado de baja, cuando un paciente busca médicos
-para reservar, entonces el médico no aparece.
-
-Éxito! El médico desactivado no aparece.
-
-CA4: Dado un médico dado de baja, cuando se consulta la historia clínica
-de sus pacientes, entonces los registros que cargó siguen visibles.
-
-Éxito! Desde la cuenta de un paciente que fue atendido por un médico desactivado, todavía se ven las observaciones realizadas
-por el mismo médico desactivado.
-tivo válido.");
+    throw new Error("El usuario seleccionado no es un administrativo válido.");
   }
 
   await repo.activate(id);
@@ -843,7 +787,9 @@ tivo válido.");
 }
 
 /** US-47 — Dar de baja un médico sin borrar sus datos ni su agenda. */
-export async function darDeBajaMedico(formData: FormData): Promise<void> {
+export async function darDeBajaMedico(
+  formData: FormData,
+): Promise<{ ok: boolean; error?: string }> {
   await requireRole(["admin"]);
 
   const id = formData.get("id");
