@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
+import { useActionState, useEffect, useMemo, useState } from "react";
 import { darDeBajaMedico, reactivarMedico } from "@/app/actions";
 
 const MEDICOS_POR_PAGINA = 10;
@@ -677,24 +678,72 @@ export function MedicosClient({
                   >
                     Cancelar
                   </button>
-                  <form action={selectedMedico.isActive ? darDeBajaMedico : reactivarMedico}>
-                    <input type="hidden" name="id" value={selectedMedico.id} />
-                    <button
-                      type="submit"
-                      className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded bg-black px-4 text-xs font-semibold text-white hover:bg-on-surface"
-                    >
-                      <span aria-hidden="true" className="material-symbols-outlined text-[16px]">
-                        {selectedMedico.isActive ? "person_remove" : "person_check"}
-                      </span>
-                      {selectedMedico.isActive ? "Dar de baja" : "Reactivar"}
-                    </button>
-                  </form>
+                  {!selectedMedico.isActive && (
+                    <form action={reactivarMedico}>
+                      <input type="hidden" name="id" value={selectedMedico.id} />
+                      <button
+                        type="submit"
+                        className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded bg-black px-4 text-xs font-semibold text-white hover:bg-on-surface"
+                      >
+                        <span aria-hidden="true" className="material-symbols-outlined text-[16px]">
+                          person_check
+                        </span>
+                        Reactivar
+                      </button>
+                    </form>
+                  )}
                 </div>
+                {selectedMedico.isActive && (
+                  <div id="dar-de-baja-medico" className="px-5 pb-5">
+                    <DarDeBajaMedico medicoId={selectedMedico.id} />
+                  </div>
+                )}
               </div>
             </div>
           )}
         </div>
       )}
     </div>
+  );
+}
+
+function DarDeBajaMedico({ medicoId }: { medicoId: string }) {
+  const router = useRouter();
+  const [state, formAction, pending] = useActionState<
+    { ok: boolean; error?: string },
+    FormData
+  >((_state, formData) => darDeBajaMedico(formData), { ok: true });
+
+  useEffect(() => {
+    if (state.ok) router.refresh();
+  }, [router, state.ok]);
+
+  return (
+    <form
+      action={formAction}
+      onSubmit={(event) => {
+        if (
+          !window.confirm(
+            "¿Querés dar de baja a este médico? Dejará de recibir turnos y no podrá acceder al sistema.",
+          )
+        ) {
+          event.preventDefault();
+        }
+      }}
+    >
+      <input type="hidden" name="id" value={medicoId} />
+      {state.error && (
+        <p className="mb-2 text-sm font-medium text-error" role="alert">
+          {state.error}
+        </p>
+      )}
+      <button
+        type="submit"
+        disabled={pending}
+        className="inline-flex h-10 w-full items-center justify-center gap-2 rounded border border-error px-4 text-sm font-semibold text-error transition-colors hover:bg-error-container disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {pending ? "Procesando…" : "Dar de baja"}
+      </button>
+    </form>
   );
 }
